@@ -573,7 +573,7 @@ class NotificationService:
         
         # 底部信息（去除免责声明）
         report_lines.extend([
-            "*报告内容均有AI生成，仅供参考，不构成投资建议*"
+            "*报告内容均由AI生成，仅供参考，不构成投资建议*"
             "",
             "",
             f"*报告生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
@@ -928,7 +928,7 @@ class NotificationService:
         
         # 底部（去除免责声明）
         report_lines.extend([
-            "*报告内容均有AI生成，仅供参考，不构成投资建议*"
+            "*报告内容均由AI生成，仅供参考，不构成投资建议*"
             "",
             "",
             f"*报告生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
@@ -1128,7 +1128,7 @@ class NotificationService:
         # 底部
         lines.extend([
             "---",
-            "*报告内容均有AI生成，仅供参考，不构成投资建议*",
+            "*报告内容均由AI生成，仅供参考，不构成投资建议*",
             "",
             "",
             f"*详细报告见 reports/report_{report_date.replace('-', '')}.md*"
@@ -1248,7 +1248,7 @@ class NotificationService:
         
         lines.extend([
             "---",
-            "*报告内容均有AI生成，仅供参考，不构成投资建议*",
+            "*报告内容均由AI生成，仅供参考，不构成投资建议*",
         ])
         
         return "\n".join(lines)

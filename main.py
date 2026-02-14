@@ -22,6 +22,9 @@ A股自选股智能分析系统 - 主调度程序
 - 买点偏好：缩量回踩 MA5/MA10 支撑
 """
 import os
+import random
+import numpy as np
+import requests
 from src.config import setup_env
 setup_env()
 
@@ -41,7 +44,6 @@ import sys
 import time
 import uuid
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 from typing import List, Optional
 
 from src.config import get_config, Config
@@ -527,9 +529,27 @@ def main() -> int:
             logger.info(f"每日执行时间: {config.schedule_time}")
             
             from src.scheduler import run_with_schedule
-            
+
+            def query_market_open():
+                try:
+                    month = datetime.now().strftime('%Y-%m')
+                    # 随机数
+                    r = random.random()
+                    response = requests.get(f'https://www.szse.cn/api/report/exchange/onepersistenthour/monthList?month={month}&random={r}')
+                    data = response.json()
+                    data_list = np.array(data['data'])
+                    return data_list[np.array([item['jyrq'] == data['nowdate'] for item in data_list])][0]['jybz'] == '1'
+                except Exception as e:
+                    logger.error(f"查询是否开市失败: {e}")
+                    return False
+
             def scheduled_task():
-                run_full_analysis(config, args, stock_codes)
+                # 是否开市
+                if query_market_open():
+                    print('今天有开市，进行市场分析')
+                    run_full_analysis(config, args, stock_codes)
+                else:
+                    print('今天没有开市，不进行市场分析')
             
             run_with_schedule(
                 task=scheduled_task,
