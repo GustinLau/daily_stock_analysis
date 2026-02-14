@@ -30,11 +30,12 @@ def markdown_to_html_document(markdown_text: str) -> str:
     html_content = markdown2.markdown(
         markdown_text,
         extras=["tables", "fenced-code-blocks", "break-on-newline", "cuddled-lists"],
+        safe_mode="escape",
     )
 
     css_style = """
             body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Segoe UI Emoji", Helvetica, Arial, sans-serif;
                 line-height: 1.5;
                 color: #24292e;
                 font-size: 14px;
@@ -61,10 +62,6 @@ def markdown_to_html_document(markdown_text: str) -> str:
                 font-size: 16px;
                 margin-top: 0.8em;
                 margin-bottom: 0.4em;
-            }
-            p {
-                margin-top: 0;
-                margin-bottom: 8px;
             }
             table {
                 border-collapse: collapse;
@@ -112,18 +109,11 @@ def markdown_to_html_document(markdown_text: str) -> str:
                 margin-bottom: 10px;
             }
             hr {
-                height: 0.25em;
+                height: 2px;
                 padding: 0;
                 margin: 16px 0;
                 background-color: #e1e4e8;
                 border: 0;
-            }
-            ul, ol {
-                padding-left: 20px;
-                margin-bottom: 10px;
-            }
-            li {
-                margin: 2px 0;
             }
         """
 
