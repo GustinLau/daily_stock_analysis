@@ -1437,7 +1437,7 @@ class NotificationService:
                                      'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
                                      'type': 'file'
                                  },
-                                 files={'file': (f'大盘复盘报告_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md',open(filepath, 'rb'))}
+                                 files={'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md',open(filepath, 'rb'))}
                                  )
         if response.status_code == 200:
             result = response.json()
