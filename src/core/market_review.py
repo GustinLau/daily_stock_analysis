@@ -57,7 +57,7 @@ def run_market_review(
             date_str = datetime.now().strftime('%Y%m%d')
             report_filename = f"market_review_{date_str}.md"
             filepath = notifier.save_report_to_file(
-                f"# 🎯 大盘复盘\n\n{review_report}", 
+                f"# 🎯 大盘复盘\n\n{review_report}\n\n---\n*报告内容均有AI生成，仅供参考，不构成投资建议*\n\n*报告生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
                 report_filename
             )
             logger.info(f"大盘复盘报告已保存: {filepath}")

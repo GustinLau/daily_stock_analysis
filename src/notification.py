@@ -21,6 +21,8 @@ import json
 import smtplib
 import re
 import time
+from pathlib import Path
+
 import markdown2
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -571,6 +573,8 @@ class NotificationService:
         
         # 底部信息（去除免责声明）
         report_lines.extend([
+            "*报告内容均有AI生成，仅供参考，不构成投资建议*"
+            "",
             "",
             f"*报告生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
         ])
@@ -924,6 +928,8 @@ class NotificationService:
         
         # 底部（去除免责声明）
         report_lines.extend([
+            "*报告内容均有AI生成，仅供参考，不构成投资建议*"
+            "",
             "",
             f"*报告生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
         ])
@@ -1122,7 +1128,9 @@ class NotificationService:
         # 底部
         lines.extend([
             "---",
-            "*AI生成，仅供参考，不构成投资建议*",
+            "*报告内容均有AI生成，仅供参考，不构成投资建议*",
+            "",
+            "",
             f"*详细报告见 reports/report_{report_date.replace('-', '')}.md*"
         ])
         
@@ -1240,7 +1248,7 @@ class NotificationService:
         
         lines.extend([
             "---",
-            "*AI生成，仅供参考，不构成投资建议*",
+            "*报告内容均有AI生成，仅供参考，不构成投资建议*",
         ])
         
         return "\n".join(lines)
@@ -1327,6 +1335,8 @@ class NotificationService:
         # 根据消息类型动态限制上限，避免 text 类型超过企业微信 2048 字节限制
         if self._wechat_msg_type == 'text':
             max_bytes = min(self._wechat_max_bytes, 2000)  # 预留一定字节给系统/分页标记
+        elif self._wechat_msg_type == 'file':
+            return self._send_wechat_file_message(content)
         else:
             max_bytes = self._wechat_max_bytes  # markdown 默认 4000 字节
         
@@ -1341,7 +1351,59 @@ class NotificationService:
         except Exception as e:
             logger.error(f"发送企业微信消息失败: {e}")
             return False
-    
+
+    def _send_wechat_file_message(self, content: str):
+        media_id = self._upload_wechat_file(content)
+        if media_id:
+            response = requests.post(self._wechat_url, json={
+                "msgtype": "file",
+                "file": {
+                    "media_id": media_id
+                }
+            })
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('errcode') == 0:
+                logger.info("企业微信消息发送成功")
+                return True
+            else:
+                logger.error(f"企业微信返回错误: {result}")
+                return False
+        else:
+            logger.error(f"企业微信请求失败: {response.status_code}")
+            return False
+
+    def _upload_wechat_file(self, content: str):
+        # 获取文件
+        reports_dir = Path(__file__).parent.parent / 'reports'
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        date_str = datetime.now().strftime('%Y%m%d')
+        is_market_report = '🎯 大盘复盘' in content
+        filename = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
+        filepath = reports_dir / filename
+        if not filepath.exists():
+            logger.error('报告未生产，无法推送')
+            return False
+        # 上传文件
+        response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
+                                 params={
+                                     'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+                                     'type': 'file'
+                                 },
+                                 files={'file': (f'大盘复盘报告_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md',open(filepath, 'rb'))}
+                                 )
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('errcode') == 0:
+                logger.info("企业微信上传报告成功")
+                return result.get('media_id')
+            else:
+                logger.error(f"企业微信返回错误: {result}")
+                return None
+        else:
+            logger.error(f"企业微信请求失败: {response.status_code}")
+        return None
+
     def _send_wechat_chunked(self, content: str, max_bytes: int) -> bool:
         """
         分批发送长消息到企业微信
