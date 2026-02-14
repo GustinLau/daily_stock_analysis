@@ -696,6 +696,7 @@ class NotificationService:
                     f"{signal_emoji} **{display_name}({r.code})**: {r.operation_advice} | "
                     f"评分 {r.sentiment_score} | {r.trend_prediction}"
                 )
+                report_lines.append('')
             report_lines.extend([
                 "",
                 "---",
