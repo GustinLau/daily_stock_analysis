@@ -70,10 +70,17 @@ class Config:
     gemini_max_retries: int = 5  # 最大重试次数
     gemini_retry_delay: float = 5.0  # 重试基础延时（秒）
 
-    # OpenAI 兼容 API（备选，当 Gemini 不可用时使用）
+    # Anthropic Claude API（备选，当 Gemini 不可用时使用）
+    anthropic_api_key: Optional[str] = None
+    anthropic_model: str = "claude-3-5-sonnet-20241022"  # Claude model name
+    anthropic_temperature: float = 0.7  # Anthropic temperature (0.0-1.0, default 0.7)
+    anthropic_max_tokens: int = 8192  # Max tokens for Anthropic responses
+
+    # OpenAI 兼容 API（备选，当 Gemini/Anthropic 不可用时使用）
     openai_api_key: Optional[str] = None
     openai_base_url: Optional[str] = None  # 如: https://api.openai.com/v1
     openai_model: str = "gpt-4o-mini"  # OpenAI 兼容模型名称
+    openai_vision_model: Optional[str] = None  # Vision 专用模型（可选，不配置则用 openai_model；部分模型如 DeepSeek 不支持图像）
     openai_temperature: float = 0.7  # OpenAI 温度参数（0.0-2.0，默认0.7）
     
     # === 搜索引擎配置（支持多 Key 负载均衡）===
@@ -130,6 +137,9 @@ class Config:
     # 报告类型：simple(精简) 或 full(完整)
     report_type: str = "simple"
 
+    # 仅分析结果摘要：true 时只推送汇总，不含个股详情（Issue #262）
+    report_summary_only: bool = False
+
     # PushPlus 推送配置
     pushplus_token: Optional[str] = None  # PushPlus Token
 
@@ -138,6 +148,9 @@ class Config:
 
     # 分析间隔时间（秒）- 用于避免API限流
     analysis_delay: float = 0.0  # 个股分析与大盘分析之间的延迟
+
+    # Merge stock + market report into one notification (Issue #190)
+    merge_email_notification: bool = False
 
     # 消息长度限制（字节）- 超长自动分批发送
     feishu_max_bytes: int = 20000  # 飞书限制约 20KB，默认 20000 字节
@@ -174,6 +187,7 @@ class Config:
     # === 定时任务配置 ===
     schedule_enabled: bool = False            # 是否启用定时任务
     schedule_time: str = "18:00"              # 每日推送时间（HH:MM 格式）
+    schedule_run_immediately: bool = True     # 启动时是否立即执行一次
     market_review_enabled: bool = True        # 是否启用大盘复盘
 
     # === 实时行情增强数据配置 ===
@@ -363,9 +377,14 @@ class Config:
             gemini_request_delay=float(os.getenv('GEMINI_REQUEST_DELAY', '2.0')),
             gemini_max_retries=int(os.getenv('GEMINI_MAX_RETRIES', '5')),
             gemini_retry_delay=float(os.getenv('GEMINI_RETRY_DELAY', '5.0')),
+            anthropic_api_key=os.getenv('ANTHROPIC_API_KEY'),
+            anthropic_model=os.getenv('ANTHROPIC_MODEL', 'claude-3-5-sonnet-20241022'),
+            anthropic_temperature=float(os.getenv('ANTHROPIC_TEMPERATURE', '0.7')),
+            anthropic_max_tokens=int(os.getenv('ANTHROPIC_MAX_TOKENS', '8192')),
             openai_api_key=os.getenv('OPENAI_API_KEY'),
             openai_base_url=os.getenv('OPENAI_BASE_URL'),
             openai_model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+            openai_vision_model=os.getenv('OPENAI_VISION_MODEL') or None,
             openai_temperature=float(os.getenv('OPENAI_TEMPERATURE', '0.7')),
             bocha_api_keys=bocha_api_keys,
             tavily_api_keys=tavily_api_keys,
@@ -395,7 +414,9 @@ class Config:
             astrbot_token=os.getenv('ASTRBOT_TOKEN'),
             single_stock_notify=os.getenv('SINGLE_STOCK_NOTIFY', 'false').lower() == 'true',
             report_type=os.getenv('REPORT_TYPE', 'simple').lower(),
+            report_summary_only=os.getenv('REPORT_SUMMARY_ONLY', 'false').lower() == 'true',
             analysis_delay=float(os.getenv('ANALYSIS_DELAY', '0')),
+            merge_email_notification=os.getenv('MERGE_EMAIL_NOTIFICATION', 'false').lower() == 'true',
             feishu_max_bytes=int(os.getenv('FEISHU_MAX_BYTES', '20000')),
             wechat_max_bytes=wechat_max_bytes,
             wechat_msg_type=wechat_msg_type_lower,
@@ -420,6 +441,7 @@ class Config:
             https_proxy=os.getenv('HTTPS_PROXY'),
             schedule_enabled=os.getenv('SCHEDULE_ENABLED', 'false').lower() == 'true',
             schedule_time=os.getenv('SCHEDULE_TIME', '18:00'),
+            schedule_run_immediately=os.getenv('SCHEDULE_RUN_IMMEDIATELY', 'true').lower() == 'true',
             market_review_enabled=os.getenv('MARKET_REVIEW_ENABLED', 'true').lower() == 'true',
             webui_enabled=os.getenv('WEBUI_ENABLED', 'false').lower() == 'true',
             webui_host=os.getenv('WEBUI_HOST', '127.0.0.1'),
@@ -570,10 +592,10 @@ class Config:
         if not self.tushare_token:
             warnings.append("提示：未配置 Tushare Token，将使用其他数据源")
         
-        if not self.gemini_api_key and not self.openai_api_key:
-            warnings.append("警告：未配置 Gemini 或 OpenAI API Key，AI 分析功能将不可用")
-        elif not self.gemini_api_key:
-            warnings.append("提示：未配置 Gemini API Key，将使用 OpenAI 兼容 API")
+        if not self.gemini_api_key and not self.anthropic_api_key and not self.openai_api_key:
+            warnings.append("警告：未配置 Gemini/Anthropic/OpenAI API Key，AI 分析功能将不可用")
+        elif not self.gemini_api_key and not self.anthropic_api_key:
+            warnings.append("提示：未配置 Gemini/Anthropic API Key，将使用 OpenAI 兼容 API")
         
         if not self.bocha_api_keys and not self.tavily_api_keys and not self.brave_api_keys and not self.serpapi_keys:
             warnings.append("提示：未配置搜索引擎 API Key (Bocha/Tavily/Brave/SerpAPI)，新闻搜索功能将不可用")
@@ -587,7 +609,7 @@ class Config:
             (self.pushover_user_key and self.pushover_api_token) or
             self.pushplus_token or
             self.serverchan3_sendkey or
-            (self.custom_webhook_urls and self.custom_webhook_bearer_token) or
+            self.custom_webhook_urls or
             (self.discord_bot_token and self.discord_main_channel_id) or
             self.discord_webhook_url
         )
