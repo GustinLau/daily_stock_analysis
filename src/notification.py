@@ -34,6 +34,7 @@ from email.utils import formataddr
 from enum import Enum
 
 import requests
+from weasyprint import HTML
 
 try:
     import discord
@@ -741,7 +742,7 @@ class NotificationService:
 
                 # 舆情情绪总结
                 if intel.get('sentiment_summary'):
-                    report_lines.append(f"**💭 舆情情绪**: {intel['sentiment_summary']}")
+                    report_lines.append(f"**🔥 舆情情绪**: {intel['sentiment_summary']}")
 
                 # 业绩预期
                 if intel.get('earnings_outlook'):
@@ -792,8 +793,8 @@ class NotificationService:
                 report_lines.extend([
                     "| 持仓情况 | 操作建议 |",
                     "|---------|---------|",
-                    f"| 🆕 **空仓者** | {pos_advice.get('no_position', result.operation_advice)} |",
-                    f"| 💼 **持仓者** | {pos_advice.get('has_position', '继续持有')} |",
+                    f"| 🈳 **空仓者** | {pos_advice.get('no_position', result.operation_advice)} |",
+                    f"| 🈵 **持仓者** | {pos_advice.get('has_position', '继续持有')} |",
                     "",
                 ])
 
@@ -1012,7 +1013,7 @@ class NotificationService:
             # 舆情情绪
             if intel.get('sentiment_summary'):
                 sentiment = intel['sentiment_summary'][:50]
-                info_lines.append(f"💭 舆情: {sentiment}")
+                info_lines.append(f"🔥 舆情: {sentiment}")
 
             if info_lines:
                 lines.extend(info_lines)
@@ -1061,9 +1062,9 @@ class NotificationService:
                 no_pos = pos_advice.get('no_position', '')
                 has_pos = pos_advice.get('has_position', '')
                 if no_pos:
-                    lines.append(f"🆕 空仓者: {no_pos[:50]}")
+                    lines.append(f"🈳 空仓者: {no_pos[:50]}")
                 if has_pos:
-                    lines.append(f"💼 持仓者: {has_pos[:50]}")
+                    lines.append(f"🈵 持仓者: {has_pos[:50]}")
                 lines.append("")
 
             # 检查清单简化版
@@ -1210,7 +1211,7 @@ class NotificationService:
                     lines.append("### 📰 重要信息")
                     lines.append("")
                     info_added = True
-                lines.append(f"💭 **舆情情绪**: {intel['sentiment_summary'][:80]}")
+                lines.append(f"🔥 **舆情情绪**: {intel['sentiment_summary'][:80]}")
 
             # 风险警报
             risks = intel.get('risk_alerts', [])
@@ -1256,8 +1257,8 @@ class NotificationService:
             lines.extend([
                 "### 💼 持仓建议",
                 "",
-                f"- 🆕 **空仓者**: {pos_advice.get('no_position', result.operation_advice)}",
-                f"- 💼 **持仓者**: {pos_advice.get('has_position', '继续持有')}",
+                f"- 🈳 **空仓者**: {pos_advice.get('no_position', result.operation_advice)}",
+                f"- 🈵 **持仓者**: {pos_advice.get('has_position', '继续持有')}",
                 "",
             ])
 
@@ -1432,8 +1433,7 @@ class NotificationService:
             return False
         with open(filepath, 'r', encoding='utf-8') as f:
             markdown = f.read()
-        html = self._markdown_to_html(markdown)
-        file_stream = io.BytesIO(html.encode('utf-8'))
+        file_stream = self._markdown_to_pdf(markdown)
         # 上传文件
         response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
                                  params={
@@ -1442,8 +1442,8 @@ class NotificationService:
                                      'type': 'file'
                                  },
                                  files={'file': (
-                                     f'大盘复盘_{date_str}.html' if is_market_report else f'决策仪表盘_{date_str}.html',
-                                     file_stream, 'text/html')}
+                                     f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf',
+                                     file_stream, 'application/pdf')}
                                  )
         if response.status_code == 200:
             result = response.json()
@@ -2085,6 +2085,20 @@ class NotificationService:
         Delegates to formatters.markdown_to_html_document for shared logic.
         """
         return markdown_to_html_document(markdown_text)
+
+    def _markdown_to_pdf(self, markdown_text: str, use_google_fonts: bool = True) -> bytes:
+        html_content = markdown_to_html_document(markdown_text)
+        html_content = re.sub(r'font-family:\s*([^;]+);', 'font-family:  "Noto Serif SC", sans-serif;', html_content)
+        html_content = html_content.replace('<style>',
+                                    '''
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Noto+Serif+SC:wght@200..900&display=swap');
+            @page  {
+                size: A4;
+                margin: 8mm;
+            }
+        ''')
+        return HTML(string=html_content).write_pdf()
 
     def send_to_telegram(self, content: str) -> bool:
         """

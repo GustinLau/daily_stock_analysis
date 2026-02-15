@@ -271,9 +271,9 @@ class AnalysisResult:
     def get_emoji(self) -> str:
         """根据操作建议返回对应 emoji"""
         emoji_map = {
+            '强烈买入': '💚',
             '买入': '🟢',
             '加仓': '🟢',
-            '强烈买入': '💚',
             '持有': '🟡',
             '观望': '⚪',
             '减仓': '🟠',
@@ -301,8 +301,10 @@ class AnalysisResult:
             return '⚪'
         elif score >= 35:
             return '🟠'
-        else:
+        elif score < 35:
             return '🔴'
+        else:
+            return '⚪'
 
     def get_confidence_stars(self) -> str:
         """返回置信度星级"""
