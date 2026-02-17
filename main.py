@@ -465,7 +465,11 @@ def main() -> int:
         args.serve = True
 
     # === 启动 Web 服务 (如果启用) ===
-    start_serve = (args.serve or args.serve_only) and os.getenv("GITHUB_ACTIONS") != "true"
+    start_serve = (
+                          args.serve or
+                          args.serve_only or
+                          (os.getenv('SCHEDULE_ENABLED') == 'true' and os.getenv('SCHEDULES_WITH_SERVE') == 'true')
+                  ) and os.getenv("GITHUB_ACTIONS") != "true"
 
     # 兼容旧版 WEBUI_HOST/WEBUI_PORT：如果用户未通过 --host/--port 指定，则使用旧变量
     if start_serve:
