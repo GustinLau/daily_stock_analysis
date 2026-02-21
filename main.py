@@ -26,6 +26,7 @@ import random
 import numpy as np
 import requests
 from src.config import setup_env
+from src.utils import request_with_retry
 
 setup_env()
 
@@ -584,11 +585,11 @@ def main() -> int:
                     headers = {
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     }
-                    response = requests.get(
-                        f'https://www.szse.cn/api/report/exchange/onepersistenthour/monthList?month={month}&random={r}',
-                        headers=headers,
-                        timeout=(10, 10)
-                    )
+                    response = request_with_retry(requests.get,
+                                                  f'https://www.szse.cn/api/report/exchange/onepersistenthour/monthList?month={month}&random={r}',
+                                                  headers=headers,
+                                                  timeout=(10, 10)
+                                                  )
                     data = response.json()
                     data_list = np.array(data['data'])
                     return data_list[np.array([item['jyrq'] == data['nowdate'] for item in data_list])][0]['jybz'] == '1'
