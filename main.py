@@ -26,6 +26,7 @@ import random
 import numpy as np
 import requests
 from src.config import setup_env
+
 setup_env()
 
 # 代理配置 - 通过 USE_PROXY 环境变量控制，默认关闭
@@ -51,7 +52,6 @@ from src.core.market_review import run_market_review
 
 from src.config import get_config, Config
 from src.logging_config import setup_logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -210,9 +210,9 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def run_full_analysis(
-    config: Config,
-    args: argparse.Namespace,
-    stock_codes: Optional[List[str]] = None
+        config: Config,
+        args: argparse.Namespace,
+        stock_codes: Optional[List[str]] = None
 ):
     """
     执行完整的分析流程（个股 + 大盘复盘）
@@ -226,10 +226,10 @@ def run_full_analysis(
 
         # Issue #190: 个股与大盘复盘合并推送
         merge_notification = (
-            getattr(config, 'merge_email_notification', False)
-            and config.market_review_enabled
-            and not getattr(args, 'no_market_review', False)
-            and not config.single_stock_notify
+                getattr(config, 'merge_email_notification', False)
+                and config.market_review_enabled
+                and not getattr(args, 'no_market_review', False)
+                and not config.single_stock_notify
         )
 
         # 创建调度器
@@ -581,7 +581,14 @@ def main() -> int:
                     month = datetime.now().strftime('%Y-%m')
                     # 随机数
                     r = random.random()
-                    response = requests.get(f'https://www.szse.cn/api/report/exchange/onepersistenthour/monthList?month={month}&random={r}')
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    }
+                    response = requests.get(
+                        f'https://www.szse.cn/api/report/exchange/onepersistenthour/monthList?month={month}&random={r}',
+                        headers=headers,
+                        timeout=(10, 10)
+                    )
                     data = response.json()
                     data_list = np.array(data['data'])
                     return data_list[np.array([item['jyrq'] == data['nowdate'] for item in data_list])][0]['jybz'] == '1'
