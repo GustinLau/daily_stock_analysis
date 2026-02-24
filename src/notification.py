@@ -1425,28 +1425,46 @@ class NotificationService:
             return False
 
     def _upload_wechat_file(self, content: str):
+        # date_str = datetime.now().strftime('%Y%m%d')
+        # is_market_report = '🎯 大盘复盘' in content
+        # filename = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
+        # reports_dir = Path(__file__).parent.parent / 'reports'
+        # filepath = reports_dir / filename
+        # if not filepath.exists():
+        #     logger.error('报告未生产，无法推送')
+        #     return False
+        # with open(filepath, 'r', encoding='utf-8') as f:
+        #     markdown = f.read()
+        # file_stream = self._markdown_to_pdf(markdown)
+        # # 上传文件
+        # response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
+        #                          params={
+        #                              'key': self._wechat_url.replace(
+        #                                  'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+        #                              'type': 'file'
+        #                          },
+        #                          files={'file': (
+        #                              f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf',
+        #                              file_stream, 'application/pdf')}
+        #                          )
+        # 获取文件
+        reports_dir = Path(__file__).parent.parent / 'reports'
+        reports_dir.mkdir(parents=True, exist_ok=True)
         date_str = datetime.now().strftime('%Y%m%d')
         is_market_report = '🎯 大盘复盘' in content
         filename = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
-        reports_dir = Path(__file__).parent.parent / 'reports'
         filepath = reports_dir / filename
         if not filepath.exists():
             logger.error('报告未生产，无法推送')
             return False
-        with open(filepath, 'r', encoding='utf-8') as f:
-            markdown = f.read()
-        file_stream = self._markdown_to_pdf(markdown)
         # 上传文件
         response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
                                  params={
-                                     'key': self._wechat_url.replace(
-                                         'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+                                     'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
                                      'type': 'file'
                                  },
-                                 files={'file': (
-                                     f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf',
-                                     file_stream, 'application/pdf')}
-                                 )
+                                files={'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md',open(filepath, 'rb'))}
+        )
         if response.status_code == 200:
             result = response.json()
             if result.get('errcode') == 0:
