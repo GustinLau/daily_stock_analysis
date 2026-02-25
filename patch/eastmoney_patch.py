@@ -1,4 +1,5 @@
 import hashlib
+import os
 import random
 import secrets
 import threading
@@ -15,13 +16,14 @@ original_request = requests.Session.request
 
 ua = UserAgent()
 
+EM_PATCH_PROXY_URL = os.getenv("EM_PATCH_PROXY_URL", "")
 
 class AuthCache:
     def __init__(self):
         self.data = None
         self.expire_at = 0
         self.lock = threading.Lock()
-        self.ttl = 20
+        self.ttl = 10 * 60
 
 
 _cache = AuthCache()
@@ -41,13 +43,9 @@ class PatchSign:
 _patch_sign = PatchSign()
 
 
-def _get_nid(user_agent):
+def _get_nid():
     """
     获取东方财富的 NID 授权令牌
-
-    Args:
-        user_agent (str): 用户代理字符串，用于模拟不同的浏览器访问
-
     Returns:
         str: 返回获取到的 NID 授权令牌，如果获取失败则返回 None
 
@@ -62,6 +60,7 @@ def _get_nid(user_agent):
     # 使用线程锁确保并发安全
     with _cache.lock:
         try:
+            user_agent = ua.random
             def generate_uuid_md5():
                 """
                 生成 UUID 并对其进行 MD5 哈希处理
@@ -132,7 +131,7 @@ def _get_nid(user_agent):
 
             _cache.data = nid
             _cache.expire_at = now + _cache.ttl
-            return nid
+            return user_agent, nid
         except requests.exceptions.RequestException as e:
             logger.warning(f"请求东方财富授权接口失败: {e}")
             _cache.data = None
@@ -163,17 +162,16 @@ def eastmoney_patch():
         )
         if not is_target:
             return original_request(self, method, url, **kwargs)
-        # 获取一个随机的 User-Agent
-        user_agent = ua.random
         # 处理 Headers：确保不破坏业务代码传入的 headers
-        headers = kwargs.get("headers", {})
-        headers["User-Agent"] = user_agent
-        nid = _get_nid(user_agent)
+        user_agent, nid = _get_nid()
         if nid:
+            headers = kwargs.get("headers", {})
+            headers["User-Agent"] = user_agent
             headers["Cookie"] = f"nid18={nid}"
-        kwargs["headers"] = headers
+            kwargs["headers"] = headers
+        url = EM_PATCH_PROXY_URL + url
         # 随机休眠，降低被封风险
-        sleep_time = random.uniform(1, 4)
+        sleep_time = random.uniform(1, 5)
         time.sleep(sleep_time)
         return original_request(self, method, url, **kwargs)
 
