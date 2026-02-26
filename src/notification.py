@@ -1458,12 +1458,14 @@ class NotificationService:
             logger.error('报告未生产，无法推送')
             return False
         # 上传文件
+        with open(filepath, 'rb') as file_bin:
+            files = {'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md', file_bin)}
         response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
-                                 params={
+                                 params = {
                                      'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
                                      'type': 'file'
                                  },
-                                files={'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md',open(filepath, 'rb'))}
+                                files = files
         )
         if response.status_code == 200:
             result = response.json()

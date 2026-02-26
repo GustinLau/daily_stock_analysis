@@ -20,7 +20,8 @@ EM_PATCH_PROXY_URL = os.getenv("EM_PATCH_PROXY_URL", "")
 
 class AuthCache:
     def __init__(self):
-        self.data = None
+        self.nid = None
+        self.user_agent = None
         self.expire_at = 0
         self.lock = threading.Lock()
         self.ttl = 10 * 60
@@ -55,8 +56,8 @@ def _get_nid():
     """
     now = time.time()
     # 检查缓存是否有效，避免重复请求
-    if _cache.data and now < _cache.expire_at:
-        return _cache.data
+    if _cache.nid and now < _cache.expire_at:
+        return _cache.user_agent, _cache.nid
     # 使用线程锁确保并发安全
     with _cache.lock:
         try:
@@ -129,21 +130,23 @@ def _get_nid():
             data = response.json()
             nid = data['data']['nid']
 
-            _cache.data = nid
+            _cache.nid = nid
+            _cache.user_agent = user_agent
             _cache.expire_at = now + _cache.ttl
-            return user_agent, nid
         except requests.exceptions.RequestException as e:
             logger.warning(f"请求东方财富授权接口失败: {e}")
-            _cache.data = None
+            _cache.nid = None
+            _cache.user_agent = None
             # 该接口请求失败时，方案可能已失效，后续大概率会继续失败，因无法成功获取，下次会继续请求，设置较长过期时间，可避免频繁请求
             _cache.expire_at = now + 5 * 60
-            return None
         except (KeyError, json.JSONDecodeError) as e:
             logger.warning(f"解析东方财富授权接口响应失败: {e}")
-            _cache.data = None
+            _cache.nid = None
+            _cache.user_agent = None
             # 该接口请求失败时，方案可能已失效，后续大概率会继续失败，因无法成功获取，下次会继续请求，设置较长过期时间，可避免频繁请求
             _cache.expire_at = now + 5 * 60
-            return None
+
+        return _cache.user_agent, _cache.nid
 
 
 def eastmoney_patch():
@@ -171,7 +174,7 @@ def eastmoney_patch():
             kwargs["headers"] = headers
         url = EM_PATCH_PROXY_URL + url
         # 随机休眠，降低被封风险
-        sleep_time = random.uniform(1, 5)
+        sleep_time = random.uniform(2, 6) // 1
         time.sleep(sleep_time)
         return original_request(self, method, url, **kwargs)
 
