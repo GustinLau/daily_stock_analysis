@@ -17,7 +17,6 @@ A股自选股智能分析系统 - 通知层
 import base64
 import hashlib
 import hmac
-import io
 import logging
 import json
 import smtplib
@@ -1413,16 +1412,19 @@ class NotificationService:
                     "media_id": media_id
                 }
             })
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('errcode') == 0:
-                logger.info("企业微信消息发送成功")
-                return True
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('errcode') == 0:
+                    logger.info("企业微信消息发送成功")
+                    return True
+                else:
+                    logger.error(f"企业微信返回错误: {result}")
+                    return False
             else:
-                logger.error(f"企业微信返回错误: {result}")
+                logger.error(f"企业微信请求失败: {response.status_code}")
                 return False
         else:
-            logger.error(f"企业微信请求失败: {response.status_code}")
+            logger.error('media_id is missing')
             return False
 
     def _upload_wechat_file(self, content: str):
@@ -1453,13 +1455,13 @@ class NotificationService:
         reports_dir.mkdir(parents=True, exist_ok=True)
         date_str = datetime.now().strftime('%Y%m%d')
         is_market_report = '🎯 大盘复盘' in content
-        filename = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
-        filepath = reports_dir / filename
-        if not filepath.exists():
+        file_name = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
+        file_path = reports_dir / file_name
+        if not file_path.exists():
             logger.error('报告未生产，无法推送')
             return False
         # 上传文件
-        with open(filepath, 'rb') as file_bin:
+        with open(file_path, 'rb') as file_bin:
             files = {'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md', file_bin)}
         response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
                                  params = {
