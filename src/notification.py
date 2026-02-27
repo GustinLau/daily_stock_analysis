@@ -1461,16 +1461,17 @@ class NotificationService:
             logger.error('报告未生产，无法推送')
             return False
         # 上传文件
+        response = None
         with open(file_path, 'rb') as file_bin:
             files = {'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md', file_bin)}
-        response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
-                                 params = {
-                                     'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
-                                     'type': 'file'
-                                 },
-                                files = files
-        )
-        if response.status_code == 200:
+            response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
+                                     params = {
+                                         'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+                                         'type': 'file'
+                                     },
+                                    files = files
+            )
+        if response and response.status_code == 200:
             result = response.json()
             if result.get('errcode') == 0:
                 logger.info("企业微信上传报告成功")
@@ -1479,7 +1480,10 @@ class NotificationService:
                 logger.error(f"企业微信返回错误: {result}")
                 return None
         else:
-            logger.error(f"企业微信请求失败: {response.status_code}")
+            if response:
+                logger.error(f"企业微信请求失败: {response.status_code}")
+            else:
+                logger.error(f"企业微信请求失败: No Response")
         return None
 
     def _send_wechat_chunked(self, content: str, max_bytes: int) -> bool:
