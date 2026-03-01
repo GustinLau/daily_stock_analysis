@@ -13,7 +13,8 @@ import requests
 
 from src.config import Config
 from src.formatters import truncate_to_bytes
-
+from pathlib import Path
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,9 @@ class WechatSender:
         if not self._wechat_url:
             logger.warning("企业微信 Webhook 未配置，跳过推送")
             return False
-        
+
+        if self._wechat_msg_type == 'file':
+            return self._send_wechat_file(content)
         # 根据消息类型动态限制上限，避免 text 类型超过企业微信 2048 字节限制
         if self._wechat_msg_type == 'text':
             max_bytes = min(self._wechat_max_bytes, 2000)  # 预留一定字节给系统/分页标记
@@ -122,6 +125,89 @@ class WechatSender:
         except Exception as e:
             logger.error("企业微信图片发送异常: %s", e)
             return False
+
+    def _send_wechat_file(self, content: str):
+        media_id = self._upload_wechat_file(content)
+        if media_id:
+            response = requests.post(self._wechat_url, json={
+                "msgtype": "file",
+                "file": {
+                    "media_id": media_id
+                }
+            })
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('errcode') == 0:
+                    logger.info("企业微信消息发送成功")
+                    return True
+                else:
+                    logger.error(f"企业微信返回错误: {result}")
+                    return False
+            else:
+                logger.error(f"企业微信请求失败: {response.status_code}")
+                return False
+        else:
+            logger.error('media_id is missing')
+            return False
+
+    def _upload_wechat_file(self, content: str):
+        # date_str = datetime.now().strftime('%Y%m%d')
+        # is_market_report = '🎯 大盘复盘' in content
+        # filename = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
+        # reports_dir = Path(__file__).parent.parent / 'reports'
+        # filepath = reports_dir / filename
+        # if not filepath.exists():
+        #     logger.error('报告未生产，无法推送')
+        #     return False
+        # with open(filepath, 'r', encoding='utf-8') as f:
+        #     markdown = f.read()
+        # file_stream = self._markdown_to_pdf(markdown)
+        # # 上传文件
+        # response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
+        #                          params={
+        #                              'key': self._wechat_url.replace(
+        #                                  'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+        #                              'type': 'file'
+        #                          },
+        #                          files={'file': (
+        #                              f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf',
+        #                              file_stream, 'application/pdf')}
+        #                          )
+        # 获取文件
+        reports_dir = Path(__file__).parent.parent.parent / 'reports'
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        date_str = datetime.now().strftime('%Y%m%d')
+        is_market_report = '🎯 大盘复盘' in content
+        file_name = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
+        file_path = reports_dir / file_name
+        if not file_path.exists():
+            logger.error('报告未生产，无法推送')
+            return False
+        # 上传文件
+        response = None
+        with open(file_path, 'rb') as file_bin:
+            files = {'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md', file_bin)}
+            response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
+                                     params = {
+                                         'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+                                         'type': 'file'
+                                     },
+                                     files = files
+                                     )
+        if response and response.status_code == 200:
+            result = response.json()
+            if result.get('errcode') == 0:
+                logger.info("企业微信上传报告成功")
+                return result.get('media_id')
+            else:
+                logger.error(f"企业微信返回错误: {result}")
+                return None
+        else:
+            if response:
+                logger.error(f"企业微信请求失败: {response.status_code}")
+            else:
+                logger.error(f"企业微信请求失败: No Response")
+        return None
 
     def _send_wechat_chunked(self, content: str, max_bytes: int) -> bool:
         """
