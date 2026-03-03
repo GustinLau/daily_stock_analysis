@@ -767,7 +767,7 @@ class NotificationService(
                     ])
                     # 舆情情绪总结
                     if intel.get('sentiment_summary'):
-                        report_lines.append(f"**💭 舆情情绪**: {intel['sentiment_summary']}")
+                        report_lines.append(f"**🔥 舆情情绪**: {intel['sentiment_summary']}")
                     # 业绩预期
                     if intel.get('earnings_outlook'):
                         report_lines.append(f"**📊 业绩预期**: {intel['earnings_outlook']}")
@@ -812,8 +812,8 @@ class NotificationService(
                     report_lines.extend([
                         "| 持仓情况 | 操作建议 |",
                         "|---------|---------|",
-                        f"| 🆕 **空仓者** | {pos_advice.get('no_position', result.operation_advice)} |",
-                        f"| 💼 **持仓者** | {pos_advice.get('has_position', '继续持有')} |",
+                        f"| 🈳 **空仓者** | {pos_advice.get('no_position', result.operation_advice)} |",
+                        f"| 🈵 **持仓者** | {pos_advice.get('has_position', '继续持有')} |",
                         "",
                     ])
 
@@ -1028,7 +1028,7 @@ class NotificationService(
                     info_lines.append(f"📊 业绩: {outlook}")
                 if intel.get('sentiment_summary'):
                     sentiment = intel['sentiment_summary'][:50]
-                    info_lines.append(f"💭 舆情: {sentiment}")
+                    info_lines.append(f"🔥 舆情: {sentiment}")
                 if info_lines:
                     lines.extend(info_lines)
                     lines.append("")
@@ -1074,9 +1074,9 @@ class NotificationService(
                     no_pos = pos_advice.get('no_position', '')
                     has_pos = pos_advice.get('has_position', '')
                     if no_pos:
-                        lines.append(f"🆕 空仓者: {no_pos[:50]}")
+                        lines.append(f"🈳 空仓者: {no_pos[:50]}")
                     if has_pos:
-                        lines.append(f"💼 持仓者: {has_pos[:50]}")
+                        lines.append(f"🈵 持仓者: {has_pos[:50]}")
                     lines.append("")
                 
                 # 检查清单简化版
@@ -1221,7 +1221,7 @@ class NotificationService(
                     lines.append("### 📰 重要信息")
                     lines.append("")
                     info_added = True
-                lines.append(f"💭 **舆情情绪**: {intel['sentiment_summary'][:80]}")
+                lines.append(f"🔥 **舆情情绪**: {intel['sentiment_summary'][:80]}")
             
             # 风险警报
             risks = intel.get('risk_alerts', [])
@@ -1267,8 +1267,8 @@ class NotificationService(
             lines.extend([
                 "### 💼 持仓建议",
                 "",
-                f"- 🆕 **空仓者**: {pos_advice.get('no_position', result.operation_advice)}",
-                f"- 💼 **持仓者**: {pos_advice.get('has_position', '继续持有')}",
+                f"- 🈳 **空仓者**: {pos_advice.get('no_position', result.operation_advice)}",
+                f"- 🈵 **持仓者**: {pos_advice.get('has_position', '继续持有')}",
                 "",
             ])
         

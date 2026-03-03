@@ -267,7 +267,7 @@ def run_full_analysis(
     """
     try:
         # Issue #373: Trading day filter (per-stock, per-market)
-        effective_codes = stock_codes if stock_codes is not None else config.stock_list
+        effective_codes = stock_codes if stock_codes is not None else config.stock_list if len(config.stock_list) > 0 else ['000001']
         filtered_codes, effective_region, should_skip = _compute_trading_day_filter(
             config, args, effective_codes
         )
@@ -279,7 +279,7 @@ def run_full_analysis(
         if set(filtered_codes) != set(effective_codes):
             skipped = set(effective_codes) - set(filtered_codes)
             logger.info("今日休市股票已跳过: %s", skipped)
-        stock_codes = filtered_codes
+        stock_codes = filtered_codes if stock_codes or len(config.stock_list) > 0 else []
 
         # 命令行参数 --single-notify 覆盖配置（#55）
         if getattr(args, 'single_notify', False):

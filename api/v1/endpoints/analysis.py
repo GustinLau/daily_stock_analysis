@@ -118,15 +118,14 @@ def trigger_analysis(
 
     # 统一大小写后去重，确保 ['aapl', 'AAPL'] 被识别为同一股票（Issue #355）
     stock_codes = [canonical_stock_code(c) for c in stock_codes]
-    stock_codes = list(dict.fromkeys(stock_codes))
-    stock_code = stock_codes[0]  # 当前只处理第一个
+    stock_codes = ",".join(list(dict.fromkeys(stock_codes)))
 
     # 异步模式：使用任务队列
     if request.async_mode:
-        return _handle_async_analysis(stock_code, request)
+        return _handle_async_analysis(stock_codes, request)
 
     # 同步模式：直接执行分析
-    return _handle_sync_analysis(stock_code, request)
+    return _handle_sync_analysis(stock_codes, request)
 
 
 def _handle_async_analysis(
