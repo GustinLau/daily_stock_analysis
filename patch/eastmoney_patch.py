@@ -165,18 +165,24 @@ def eastmoney_patch():
         )
         if not is_target:
             return original_request(self, method, url, **kwargs)
-        # 处理 Headers：确保不破坏业务代码传入的 headers
+
         user_agent, nid = _get_nid()
         if nid:
             headers = kwargs.get("headers", {})
             headers["User-Agent"] = user_agent
             headers["Cookie"] = f"nid18={nid}"
             kwargs["headers"] = headers
-        url = EM_PATCH_PROXY_URL + url
+
         # 随机休眠，降低被封风险
         sleep_time = random.uniform(2, 6) // 1
         time.sleep(sleep_time)
-        return original_request(self, method, url, **kwargs)
+        # noinspection PyBroadException
+        try:
+            return original_request(self, method, url, **kwargs)
+        except:
+            # 处理 Headers：确保不破坏业务代码传入的 headers
+            url = EM_PATCH_PROXY_URL + url
+            return original_request(self, method, url, **kwargs)
 
     # 全局替换 Session 的 request 入口
     requests.Session.request = patched_request
