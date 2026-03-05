@@ -33,6 +33,7 @@ from src.notification_sender import (
     Serverchan3Sender,
     TelegramSender,
     WechatSender,
+    ThirdPartySender,
     WECHAT_IMAGE_MAX_BYTES
 )
 
@@ -43,6 +44,7 @@ class NotificationChannel(Enum):
     """通知渠道类型"""
     WECHAT = "wechat"      # 企业微信
     FEISHU = "feishu"      # 飞书
+    THIRD_PARTY = "third_party"  # 第三方
     TELEGRAM = "telegram"  # Telegram
     EMAIL = "email"        # 邮件
     PUSHOVER = "pushover"  # Pushover（手机/桌面推送）
@@ -67,6 +69,7 @@ class ChannelDetector:
         names = {
             NotificationChannel.WECHAT: "企业微信",
             NotificationChannel.FEISHU: "飞书",
+            NotificationChannel.THIRD_PARTY: "第三方",
             NotificationChannel.TELEGRAM: "Telegram",
             NotificationChannel.EMAIL: "邮件",
             NotificationChannel.PUSHOVER: "Pushover",
@@ -90,7 +93,8 @@ class NotificationService(
     PushplusSender,
     Serverchan3Sender,
     TelegramSender,
-    WechatSender
+    WechatSender,
+    ThirdPartySender,
 ):
     """
     通知服务
@@ -142,7 +146,8 @@ class NotificationService(
         Serverchan3Sender.__init__(self, config)
         TelegramSender.__init__(self, config)
         WechatSender.__init__(self, config)
-        
+        ThirdPartySender.__init__(self, config)
+
         # 检测所有已配置的渠道
         self._available_channels = self._detect_all_channels()
         if self._has_context_channel():
@@ -171,6 +176,10 @@ class NotificationService(
         # 飞书
         if self._feishu_url:
             channels.append(NotificationChannel.FEISHU)
+
+        # 第三方 Webhook
+        if self._third_party_url:
+            channels.append(NotificationChannel.THIRD_PARTY)
         
         # Telegram
         if self._is_telegram_configured():
@@ -1435,6 +1444,8 @@ class NotificationService(
                         result = self.send_to_wechat(content)
                 elif channel == NotificationChannel.FEISHU:
                     result = self.send_to_feishu(content)
+                elif channel == NotificationChannel.THIRD_PARTY:
+                    result = self.send_to_third_party(content)
                 elif channel == NotificationChannel.TELEGRAM:
                     if use_image:
                         result = self._send_telegram_photo(image_bytes)
@@ -1636,20 +1647,20 @@ if __name__ == "__main__":
     print(f"渠道列表: {service.get_available_channels()}")
     print(f"服务可用: {service.is_available()}")
     
-    # 生成日报
-    print("\n=== 生成日报测试 ===")
-    report = service.generate_daily_report(test_results)
-    print(report)
-    
-    # 保存到文件
-    print("\n=== 保存日报 ===")
-    filepath = service.save_report_to_file(report)
-    print(f"保存成功: {filepath}")
-    
+    # # 生成日报
+    # print("\n=== 生成日报测试 ===")
+    # report = service.generate_daily_report(test_results)
+    # print(report)
+    #
+    # # 保存到文件
+    # print("\n=== 保存日报 ===")
+    # filepath = service.save_report_to_file(report)
+    # print(f"保存成功: {filepath}")
+    #
     # 推送测试
     if service.is_available():
         print(f"\n=== 推送测试（{service.get_channel_names()}）===")
-        success = service.send(report)
+        success = service.send('🎯 大盘复盘')
         print(f"推送结果: {'成功' if success else '失败'}")
     else:
         print("\n通知渠道未配置，跳过推送测试")
