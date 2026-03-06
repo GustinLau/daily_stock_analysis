@@ -178,21 +178,28 @@ def eastmoney_patch():
         sleep_time = random.uniform(2, 6) // 1
         time.sleep(sleep_time)
 
-        # noinspection PyBroadException
         try:
             url_1 = EM_PATCH_PROXY_URL_1 + url
-            return original_request(self, method, url_1, **kwargs)
+            response = original_request(self, method, url_1, **kwargs)
+            json = response.json()
+            if json:
+                return response
+            else:
+                raise Exception("empty response")
         except:
-            # noinspection PyBroadException
-            try:
-                if EM_PATCH_PROXY_URL_2:
-                    url2 = EM_PATCH_PROXY_URL_2 + url.replace("https://", "")
+            if EM_PATCH_PROXY_URL_2:
+                url2 = EM_PATCH_PROXY_URL_2 + url.replace("https://", "")
+                response = original_request(self, method, url2, **kwargs)
+                try:
+                    json = response.json()
+                    if json:
+                        return response
+                    else:
+                        raise Exception("empty response")
+                except:
                     return original_request(self, method, url2, **kwargs)
-                else:
-                    return original_request(self, method, url, **kwargs)
-            except:
+            else:
                 return original_request(self, method, url, **kwargs)
-
     # 全局替换 Session 的 request 入口
     requests.Session.request = patched_request
     _patch_sign.set_patch(True)
