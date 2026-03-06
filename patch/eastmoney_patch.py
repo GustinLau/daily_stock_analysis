@@ -175,7 +175,7 @@ def eastmoney_patch():
             kwargs["headers"] = headers
 
         # 随机休眠，降低被封风险
-        sleep_time = random.uniform(2, 6) // 1
+        sleep_time = 1
         time.sleep(sleep_time)
 
         try:
