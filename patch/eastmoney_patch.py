@@ -16,7 +16,8 @@ original_request = requests.Session.request
 
 ua = UserAgent()
 
-EM_PATCH_PROXY_URL = os.getenv("EM_PATCH_PROXY_URL", "")
+EM_PATCH_PROXY_URL_1 = os.getenv("EM_PATCH_PROXY_URL_1", "")
+EM_PATCH_PROXY_URL_2 = os.getenv("EM_PATCH_PROXY_URL_2", "")
 
 class AuthCache:
     def __init__(self):
@@ -176,13 +177,21 @@ def eastmoney_patch():
         # 随机休眠，降低被封风险
         sleep_time = random.uniform(2, 6) // 1
         time.sleep(sleep_time)
+
         # noinspection PyBroadException
         try:
-            return original_request(self, method, url, **kwargs)
+            url_1 = EM_PATCH_PROXY_URL_1 + url
+            return original_request(self, method, url_1, **kwargs)
         except:
-            # 处理 Headers：确保不破坏业务代码传入的 headers
-            url = EM_PATCH_PROXY_URL + url
-            return original_request(self, method, url, **kwargs)
+            # noinspection PyBroadException
+            try:
+                if EM_PATCH_PROXY_URL_2:
+                    url2 = EM_PATCH_PROXY_URL_2 + url.replace("https://", "")
+                    return original_request(self, method, url2, **kwargs)
+                else:
+                    return original_request(self, method, url, **kwargs)
+            except:
+                return original_request(self, method, url, **kwargs)
 
     # 全局替换 Session 的 request 入口
     requests.Session.request = patched_request
