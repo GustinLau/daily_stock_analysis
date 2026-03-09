@@ -181,8 +181,8 @@ def eastmoney_patch():
         try:
             url_1 = EM_PATCH_PROXY_URL_1 + url
             response = original_request(self, method, url_1, **kwargs)
-            json = response.json()
-            if json:
+            resp_json = response.json()
+            if resp_json:
                 return response
             else:
                 raise Exception("empty response")
@@ -191,13 +191,13 @@ def eastmoney_patch():
                 url2 = EM_PATCH_PROXY_URL_2 + url.replace("https://", "")
                 response = original_request(self, method, url2, **kwargs)
                 try:
-                    json = response.json()
-                    if json:
+                    resp_json = response.json()
+                    if resp_json:
                         return response
                     else:
                         raise Exception("empty response")
                 except:
-                    return original_request(self, method, url2, **kwargs)
+                    return original_request(self, method, url, **kwargs)
             else:
                 return original_request(self, method, url, **kwargs)
     # 全局替换 Session 的 request 入口
