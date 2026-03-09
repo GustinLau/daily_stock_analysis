@@ -788,7 +788,8 @@ class DatabaseManager:
         code: Optional[str] = None,
         query_id: Optional[str] = None,
         days: int = 30,
-        limit: int = 50
+        limit: int = 50,
+        exclude_query_id: Optional[str] = None,
     ) -> List[AnalysisHistory]:
         """
         Query analysis history records.
@@ -796,6 +797,7 @@ class DatabaseManager:
         Notes:
         - If query_id is provided, perform exact lookup and ignore days window.
         - If query_id is not provided, apply days-based time filtering.
+        - exclude_query_id: exclude records with this query_id (for history comparison).
         """
         cutoff_date = datetime.now() - timedelta(days=days)
 
@@ -809,6 +811,10 @@ class DatabaseManager:
 
             if code:
                 conditions.append(AnalysisHistory.code == code)
+
+            # exclude_query_id only applies when not doing exact lookup (query_id is None)
+            if exclude_query_id and not query_id:
+                conditions.append(AnalysisHistory.query_id != exclude_query_id)
 
             results = session.execute(
                 select(AnalysisHistory)
@@ -1235,12 +1241,19 @@ class DatabaseManager:
                 except ValueError:
                     pass
 
-        # 兜底：无"元"字时（如 "102.10-103.00（MA5附近）"），
-        # 提取最后一个非 MA 前缀的数字
+        # 兜底：无"元"字时，先截去第一个括号后的内容，避免误提取括号内技术指标数字
+        # 例如 "1.52-1.53 (回踩MA5/10附近)" → 仅在 "1.52-1.53 " 中搜索
+        paren_pos = len(text)
+        for paren_char in ('(', '（'):
+            pos = text.find(paren_char)
+            if pos != -1:
+                paren_pos = min(paren_pos, pos)
+        search_text = text[:paren_pos].strip() or text  # 括号前为空时降级用全文
+
         valid_numbers = []
-        for m in re.finditer(r"\d+(?:\.\d+)?", text):
+        for m in re.finditer(r"\d+(?:\.\d+)?", search_text):
             start_idx = m.start()
-            if start_idx >= 2 and text[start_idx-2:start_idx].upper() == "MA":
+            if start_idx >= 2 and search_text[start_idx-2:start_idx].upper() == "MA":
                 continue
             valid_numbers.append(m.group())
         if valid_numbers:
