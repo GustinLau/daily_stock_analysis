@@ -31,8 +31,6 @@ from api.v1.schemas.analysis import (
     AnalysisResultResponse,
     TaskAccepted,
     BatchTaskAcceptedResponse,
-    BatchTaskAcceptedItem,
-    BatchDuplicateTaskItem,
     TaskStatus,
     TaskInfo,
     TaskListResponse,
@@ -50,8 +48,7 @@ from data_provider.base import canonical_stock_code
 from src.config import Config
 from src.services.task_queue import (
     get_task_queue,
-    DuplicateTaskError,
-    TaskStatus as TaskStatusEnum,
+    DuplicateTaskError
 )
 from src.utils.data_processing import (
     normalize_model_used,
@@ -164,71 +161,43 @@ def _handle_async_analysis_batch(
     """
     处理异步分析请求（支持批量）
     
-    为每只股票提交任务到队列，立即返回 202
-    如果仅一只股票且正在分析中，返回 409
+    提交任务到队列，立即返回 202
+    如果股票正在分析中，返回 409
     """
     task_queue = get_task_queue()
-    accepted_tasks, duplicate_errors = task_queue.submit_tasks_batch(
-        stock_codes=stock_codes,
-        stock_name=None,
-        report_type=request.report_type,
-        force_refresh=request.force_refresh,
-    )
-
-    accepted = [
-        BatchTaskAcceptedItem(
-            task_id=task.task_id,
-            stock_code=task.stock_code,
-            status="pending",
-            message=f"分析任务已加入队列: {task.stock_code}",
-        )
-        for task in accepted_tasks
-    ]
-    duplicates = [
-        BatchDuplicateTaskItem(
-            stock_code=dup.stock_code,
-            existing_task_id=dup.existing_task_id,
-            message=str(dup),
-        )
-        for dup in duplicate_errors
-    ]
-
-    # 单只股票且被拒绝：保持 409 兼容性
-    if len(stock_codes) == 1 and duplicates:
-        dup = duplicates[0]
-        error_response = DuplicateTaskErrorResponse(
-            error="duplicate_task",
-            message=dup.message,
-            stock_code=dup.stock_code,
-            existing_task_id=dup.existing_task_id,
-        )
-        return JSONResponse(
-            status_code=409,
-            content=error_response.model_dump()
+    stock_code = ",".join(stock_codes)
+    try:
+        # 提交任务（如果重复会抛出 DuplicateTaskError）
+        task_info = task_queue.submit_task(
+            stock_code=stock_code,
+            stock_name=None,  # 名称在分析过程中获取
+            report_type=request.report_type,
+            force_refresh=request.force_refresh,
         )
 
-    # 单只股票成功：保持原有响应格式兼容性
-    if len(stock_codes) == 1 and accepted:
+        # 返回 202 Accepted
         task_accepted = TaskAccepted(
-            task_id=accepted[0].task_id,
+            task_id=task_info.task_id,
             status="pending",
-            message=accepted[0].message,
+            message=f"分析任务已加入队列: {stock_code}"
         )
         return JSONResponse(
             status_code=202,
             content=task_accepted.model_dump()
         )
 
-    # 批量：返回汇总结果
-    batch_response = BatchTaskAcceptedResponse(
-        accepted=accepted,
-        duplicates=duplicates,
-        message=f"已提交 {len(accepted)} 个任务，{len(duplicates)} 个重复跳过",
-    )
-    return JSONResponse(
-        status_code=202,
-        content=batch_response.model_dump()
-    )
+    except DuplicateTaskError as e:
+        # 股票正在分析中，返回 409 Conflict
+        error_response = DuplicateTaskErrorResponse(
+            error="duplicate_task",
+            message=str(e),
+            stock_code=e.stock_code,
+            existing_task_id=e.existing_task_id,
+        )
+        return JSONResponse(
+            status_code=409,
+            content=error_response.model_dump()
+        )
 
 
 def _handle_sync_analysis(
