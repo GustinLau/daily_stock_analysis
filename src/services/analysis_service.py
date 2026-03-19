@@ -31,13 +31,12 @@ class AnalysisService:
         self.repo = AnalysisRepository()
     
     def analyze_stock(
-            self,
-            stock_code: str,
-            report_type: str = "detailed",
-            force_refresh: bool = False,
-            query_id: Optional[str] = None,
-            send_notification: bool = True,
-            is_single_stock: bool = False
+        self,
+        stock_code: str,
+        report_type: str = "detailed",
+        force_refresh: bool = False,
+        query_id: Optional[str] = None,
+        send_notification: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
         执行股票分析
@@ -48,7 +47,6 @@ class AnalysisService:
             force_refresh: 是否强制刷新
             query_id: 查询 ID（可选）
             send_notification: 是否发送通知（API 触发默认发送）
-            is_single_stock: 是否单只股票
             
         Returns:
             分析结果字典，包含:
@@ -76,43 +74,24 @@ class AnalysisService:
                 query_source="api"
             )
             
-            # 确定报告类型 (API: simple/detailed/brief -> ReportType)
-            if report_type == "detailed":
-                rt = ReportType.FULL
-            elif report_type == "brief":
-                rt = ReportType.BRIEF
-            else:
-                rt = ReportType.SIMPLE
+            # 确定报告类型 (API: simple/detailed/full/brief -> ReportType)
+            rt = ReportType.from_str(report_type)
             
             # 执行分析
-            if is_single_stock:
-                result = pipeline.process_single_stock(
-                    code=stock_code,
-                    skip_analysis=False,
-                    single_stock_notify=send_notification,
-                    report_type=rt
-                )
-
-                if result is None:
-                    logger.warning(f"分析股票 {stock_code} 返回空结果")
-                    return None
-
-                # 构建响应
-                return self._build_analysis_response(result, query_id)
-            else:
-                # 多只股票
-                results = pipeline.run(
-                    stock_codes=stock_code.split(","),
-                    send_notification=send_notification,
-                )
-                if results is None:
-                    logger.warning(f"分析股票 {stock_code} 返回空结果")
-                    return None
-
-                return {
-                    "stock_code": stock_code
-                }
-
+            result = pipeline.process_single_stock(
+                code=stock_code,
+                skip_analysis=False,
+                single_stock_notify=send_notification,
+                report_type=rt
+            )
+            
+            if result is None:
+                logger.warning(f"分析股票 {stock_code} 返回空结果")
+                return None
+            
+            # 构建响应
+            return self._build_analysis_response(result, query_id, report_type=rt.value)
+            
         except Exception as e:
             logger.error(f"分析股票 {stock_code} 失败: {e}", exc_info=True)
             return None
@@ -120,7 +99,8 @@ class AnalysisService:
     def _build_analysis_response(
         self, 
         result: Any, 
-        query_id: str
+        query_id: str,
+        report_type: str = "detailed",
     ) -> Dict[str, Any]:
         """
         构建分析响应
@@ -128,7 +108,8 @@ class AnalysisService:
         Args:
             result: AnalysisResult 对象
             query_id: 查询 ID
-            
+            report_type: 归一化后的报告类型
+
         Returns:
             格式化的响应字典
         """
@@ -146,7 +127,7 @@ class AnalysisService:
                 "query_id": query_id,
                 "stock_code": result.code,
                 "stock_name": result.name,
-                "report_type": "detailed",
+                "report_type": report_type,
                 "current_price": result.current_price,
                 "change_pct": result.change_pct,
                 "model_used": getattr(result, "model_used", None),
