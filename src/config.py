@@ -444,6 +444,7 @@ class Config:
 
     # 第三方 Webhook
     third_party_webhook_url: Optional[str] = None
+    third_party_token: Optional[str] = None
 
     # Telegram 配置（需要同时配置 Bot Token 和 Chat ID）
     telegram_bot_token: Optional[str] = None  # Bot Token（@BotFather 获取）
@@ -1029,6 +1030,7 @@ class Config:
             wechat_webhook_url=os.getenv('WECHAT_WEBHOOK_URL'),
             feishu_webhook_url=os.getenv('FEISHU_WEBHOOK_URL'),
             third_party_webhook_url=os.getenv('THIRD_PARTY_WEBHOOK_URL'),
+            third_party_token=os.getenv('THIRD_PARTY_TOKEN'),
             telegram_bot_token=os.getenv('TELEGRAM_BOT_TOKEN'),
             telegram_chat_id=os.getenv('TELEGRAM_CHAT_ID'),
             telegram_message_thread_id=os.getenv('TELEGRAM_MESSAGE_THREAD_ID'),

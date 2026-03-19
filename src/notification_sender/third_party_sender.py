@@ -22,6 +22,7 @@ class ThirdPartySender:
             config: 配置对象
         """
         self._third_party_url = config.third_party_webhook_url
+        self._third_party_token = config.third_party_token
 
     def send_to_third_party(self, content: str) -> bool:
         if not self._third_party_url:
@@ -45,7 +46,8 @@ class ThirdPartySender:
             files = {'file': file_bin}
             response = requests.post(self._third_party_url, data={
                 'file_name': f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md'},
-                                     files=files)
+                                     files=files,
+                                     headers={'Authorization': self._third_party_token})
         if response and response.status_code == 200:
             result = response.json()
             if result.get('success'):
