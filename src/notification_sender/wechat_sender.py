@@ -17,6 +17,8 @@ from src.formatters import chunk_content_by_max_bytes
 from pathlib import Path
 from datetime import datetime
 
+from src.md2pdf import markdown_to_pdf
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 WECHAT_IMAGE_MAX_BYTES = 2 * 1024 * 1024
 
 class WechatSender:
-    
+
     def __init__(self, config: Config):
         """
         初始化企业微信配置
@@ -36,7 +38,7 @@ class WechatSender:
         self._wechat_max_bytes = getattr(config, 'wechat_max_bytes', 4000)
         self._wechat_msg_type = getattr(config, 'wechat_msg_type', 'markdown')
         self._webhook_verify_ssl = getattr(config, 'webhook_verify_ssl', True)
-        
+
     def send_to_wechat(self, content: str) -> bool:
         """
         推送消息到企业微信机器人
@@ -81,13 +83,13 @@ class WechatSender:
             max_bytes = min(self._wechat_max_bytes, 2000)  # 预留一定字节给系统/分页标记
         else:
             max_bytes = self._wechat_max_bytes  # markdown 默认 4000 字节
-        
+
         # 检查字节长度，超长则分批发送
         content_bytes = len(content.encode('utf-8'))
         if content_bytes > max_bytes:
             logger.info(f"消息内容超长({content_bytes}字节/{len(content)}字符)，将分批发送")
             return self._send_wechat_chunked(content, max_bytes)
-        
+
         try:
             return self._send_wechat_message(content)
         except Exception as e:
@@ -179,22 +181,39 @@ class WechatSender:
         reports_dir.mkdir(parents=True, exist_ok=True)
         date_str = datetime.now().strftime('%Y%m%d')
         is_market_report = '🎯 大盘复盘' in content
+
         file_name = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
         file_path = reports_dir / file_name
         if not file_path.exists():
             logger.error('报告未生产，无法推送')
             return False
+
         # 上传文件
         response = None
-        with open(file_path, 'rb') as file_bin:
-            files = {'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md', file_bin)}
+        if not is_market_report:
+            with open(file_path, 'rb') as file_bin:
+                files = {'file': (f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md', file_bin)}
+                response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
+                                         params = {
+                                             'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+                                             'type': 'file'
+                                         },
+                                         files = files
+                                         )
+        else:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                markdown = f.read()
+            file_stream = markdown_to_pdf(markdown, key=f'大盘复盘_{date_str}.pdf')
             response = requests.post('https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media',
-                                     params = {
-                                         'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
-                                         'type': 'file'
-                                     },
-                                     files = files
-                                     )
+                                 params={
+                                     'key': self._wechat_url.replace('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=', ''),
+                                     'type': 'file'
+                                 },
+                                 files={'file': (
+                                     f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf',
+                                     file_stream, 'application/pdf')}
+                                 )
+
         if response and response.status_code == 200:
             result = response.json()
             if result.get('errcode') == 0:
@@ -209,18 +228,18 @@ class WechatSender:
             else:
                 logger.error(f"企业微信请求失败: No Response")
         return None
-    
+
     def _send_wechat_message(self, content: str) -> bool:
         """发送企业微信消息"""
         payload = self._gen_wechat_payload(content)
-        
+
         response = requests.post(
             self._wechat_url,
             json=payload,
             timeout=10,
             verify=self._webhook_verify_ssl
         )
-        
+
         if response.status_code == 200:
             result = response.json()
             if result.get('errcode') == 0:
@@ -232,7 +251,7 @@ class WechatSender:
         else:
             logger.error(f"企业微信请求失败: {response.status_code}")
             return False
-        
+
     def _send_wechat_chunked(self, content: str, max_bytes: int) -> bool:
         """
         分批发送长消息到企业微信

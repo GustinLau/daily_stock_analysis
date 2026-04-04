@@ -9,6 +9,8 @@ from src.config import Config
 from pathlib import Path
 from datetime import datetime
 
+from src.md2pdf import markdown_to_pdf
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,6 +37,7 @@ class ThirdPartySender:
         reports_dir.mkdir(parents=True, exist_ok=True)
         date_str = datetime.now().strftime('%Y%m%d')
         is_market_report = '🎯 大盘复盘' in content
+
         file_name = f"market_review_{date_str}.md" if is_market_report else f"report_{date_str}.md"
         file_path = reports_dir / file_name
         if not file_path.exists():
@@ -42,12 +45,27 @@ class ThirdPartySender:
             return False
         # 上传文件
         response = None
-        with open(file_path, 'rb') as file_bin:
-            files = {'file': file_bin}
-            response = requests.post(self._third_party_url, data={
-                'file_name': f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md'},
-                                     files=files,
+        if not is_market_report:
+            with open(file_path, 'rb') as file_bin:
+                files = {'file': file_bin}
+                response = requests.post(self._third_party_url, data={
+                    'file_name': f'大盘复盘_{date_str}.md' if is_market_report else f'决策仪表盘_{date_str}.md'},
+                                         files=files,
+                                         headers={'Authorization': self._third_party_token})
+        else:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                markdown = f.read()
+            file_stream = markdown_to_pdf(markdown, key=f'大盘复盘_{date_str}.pdf')
+            response = requests.post(self._third_party_url,
+                                     data={
+                                         'file_name': f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf'
+                                     },
+                                     files={'file': (
+                                         f'大盘复盘_{date_str}.pdf' if is_market_report else f'决策仪表盘_{date_str}.pdf',
+                                         file_stream, 'application/pdf')
+                                     },
                                      headers={'Authorization': self._third_party_token})
+
         if response and response.status_code == 200:
             result = response.json()
             if result.get('success'):
